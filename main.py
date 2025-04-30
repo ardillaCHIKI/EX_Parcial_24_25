@@ -1,39 +1,90 @@
+import gradio as gr
 from Ejercicio_4.libro_model import Book, BookGenre
 from Ejercicio_5.personas import User, Employee
 
-### Ejercico 4 ###
-# Crear un objeto de libro y mostrar su información
-book1 = Book("El Principito", "Antoine de Saint-Exupéry", BookGenre.FICTION)
-
-# Mostrar información del libro
-print(f"Título: {book1.get_title()}, Autor: {book1.get_author()}, Género: {book1.get_genre().value}, ¿Disponible?: {book1.is_available()}")
-
-
-### Ejercico 5 ###
-# Lista de libros
+# Estado global de la biblioteca
 book_list = []
+users = []
+employee = Employee(1, "Admin")
 
-# Crear algunos libros
-book1 = Book("El Principito", "Antoine de Saint-Exupéry", BookGenre.FICTION)
-book2 = Book("Cien años de soledad", "Gabriel García Márquez", BookGenre.FICTION)
+# Funciones principales
+def add_book(title, author, genre):
+    try:
+        genre_enum = BookGenre[genre.upper()]
+        new_book = Book(title, author, genre_enum)
+        book_list.append(new_book)
+        return f"Libro '{title}' añadido exitosamente."
+    except KeyError:
+        return f"Género '{genre}' no es válido. Usa FICTION, NONFICTION, SCIENCE o ART."
 
-# Crear un empleado
-employee1 = Employee(1, "María")
+def add_user(user_id, name):
+    new_user = User(user_id, name)
+    users.append(new_user)
+    return f"Usuario '{name}' añadido exitosamente."
 
-# Añadir libros al sistema
-employee1.add_book(book_list, book1)
-employee1.add_book(book_list, book2)
+def borrow_book(user_name, book_title):
+    user = next((u for u in users if u._name == user_name), None)
+    book = next((b for b in book_list if b.get_title() == book_title), None)
+    if not user:
+        return f"Usuario '{user_name}' no encontrado."
+    if not book:
+        return f"Libro '{book_title}' no encontrado."
+    if not book.is_available():
+        return f"El libro '{book_title}' no está disponible."
+    user.borrow_book(book)
+    return f"Usuario '{user_name}' tomó prestado el libro '{book_title}'."
 
-# Crear un usuario
-user1 = User(101, "Juan")
+def return_book(user_name, book_title):
+    user = next((u for u in users if u._name == user_name), None)
+    book = next((b for b in book_list if b.get_title() == book_title), None)
+    if not user:
+        return f"Usuario '{user_name}' no encontrado."
+    if not book:
+        return f"Libro '{book_title}' no encontrado."
+    user.return_book(book)
+    return f"Usuario '{user_name}' devolvió el libro '{book_title}'."
 
-# Préstamos de libros
-user1.borrow_book(book1)
-user1.borrow_book(book2)
+def list_books():
+    if not book_list:
+        return "No hay libros disponibles en la biblioteca."
+    response = "Libros en la biblioteca:\n"
+    for book in book_list:
+        status = "Disponible" if book.is_available() else "Prestado"
+        response += f"- {book.get_title()} ({status})\n"
+    return response
 
-# Devolución de libros
-user1.return_book(book1)
+# Interfaz Gradio
+def biblioteca_interface(action, param1="", param2=""):
+    if action == "Añadir Libro":
+        title, author, genre = param1, param2.split(",")[0], param2.split(",")[1]
+        return add_book(title, author, genre)
+    elif action == "Añadir Usuario":
+        user_id, name = int(param1), param2
+        return add_user(user_id, name)
+    elif action == "Prestar Libro":
+        user_name, book_title = param1, param2
+        return borrow_book(user_name, book_title)
+    elif action == "Devolver Libro":
+        user_name, book_title = param1, param2
+        return return_book(user_name, book_title)
+    elif action == "Listar Libros":
+        return list_books()
+    else:
+        return "Acción no válida."
 
-# Eliminar un libro del sistema
-employee1.remove_book(book_list, book2)
+# Configuración de la interfaz Gradio
+actions = ["Añadir Libro", "Añadir Usuario", "Prestar Libro", "Devolver Libro", "Listar Libros"]
+interface = gr.Interface(
+    fn=biblioteca_interface,
+    inputs=[
+        gr.Dropdown(choices=actions, label="Acción"),
+        gr.Textbox(label="Primer parámetro"),
+        gr.Textbox(label="Segundo parámetro"),
+    ],
+    outputs="text",
+    title="Sistema de Gestión de Biblioteca"
+)
+
+interface.launch()
+
 
